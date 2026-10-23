@@ -1,4 +1,35 @@
+
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ page import="java.util.List" %>
+<%@ page import="com.foodloop.model.Donation" %>
+
+<%!
+    // Escape text before displaying database values in HTML
+    private String escapeHtml(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value.replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace("\"", "&quot;")
+                    .replace("'", "&#39;");
+    }
+%>
+
+<%
+    // Donations are supplied by NGODashboardServlet
+    List<Donation> availableDonations =
+        (List<Donation>) request.getAttribute("availableDonations");
+
+    int availableDonationCount =
+        availableDonations == null ? 0 : availableDonations.size();
+
+    String availableFoodUrl =
+        request.getContextPath() + "/ngo/available-food";
+%>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,12 +44,12 @@
 <div class="dashboard-layout">
 
     <aside class="sidebar">
-        <a class="brand" href="ngo-dashboard.jsp">FoodLoop<span>.</span></a>
+        <a class="brand" href="<%= request.getContextPath() %>/ngo/dashboard">FoodLoop<span>.</span></a>
         <p class="sidebar-label">NGO MENU</p>
 
         <nav>
-            <a class="nav-link active" href="ngo-dashboard.jsp">🏠 Dashboard</a>
-            <a class="nav-link" href="available-food.jsp">🍱 Available Food</a>
+            <a class="nav-link active" href="<%= request.getContextPath() %>/ngo/dashboard">🏠 Dashboard</a>
+            <a class="nav-link" href="<%= availableFoodUrl %>">🍱 Available Food</a>
             <a class="nav-link" href="my-requests.jsp">📩 My Requests</a>
             <a class="nav-link" href="pickup-status.jsp">🚚 Pickup Status</a>
         </nav>
@@ -41,7 +72,7 @@
                 <p class="eyebrow">TOGETHER WE CAN MAKE A DIFFERENCE</p>
                 <h2>Good Food. Greater Good. 🌱</h2>
                 <p>Find available surplus food and connect with generous donors.</p>
-                <a class="btn btn-light" href="available-food.jsp">Explore Available Food</a>
+                <a class="btn btn-light" href="<%= availableFoodUrl %>">Explore Available Food</a>
             </div>
             <div class="banner-emoji">🤝</div>
         </section>
@@ -51,7 +82,7 @@
             <article class="stat-card">
                 <div class="stat-icon">📦</div>
                 <p>Available Donations</p>
-                <h2>18</h2>
+                <h2><%= availableDonationCount %></h2>
                 <span>Food donations listed</span>
             </article>
 
@@ -79,58 +110,72 @@
         </section>
 
         <section class="content-card">
+
             <div class="section-heading">
                 <div>
                     <h2>Recently Available Food</h2>
                     <p class="muted">Explore the latest food donations.</p>
                 </div>
-                <a class="text-link" href="available-food.jsp">View All →</a>
+
+                <a class="text-link" href="<%= availableFoodUrl %>">View All →</a>
             </div>
 
             <div class="food-grid">
 
-                <article class="food-card">
-                    <div class="food-image">🍚</div>
-                    <div class="food-card-body">
-                        <span class="food-category">Cooked Food</span>
-                        <h3>Vegetable Rice</h3>
-                        <p class="muted">Quantity: 20 servings</p>
-                        <p class="muted">Pickup: Today, 5 PM</p>
-                        <a class="btn btn-primary btn-block" href="food-details.jsp">View Details</a>
-                    </div>
-                </article>
+                <% if (availableDonations == null || availableDonations.isEmpty()) { %>
 
-                <article class="food-card">
-                    <div class="food-image">🍞</div>
-                    <div class="food-card-body">
-                        <span class="food-category">Bakery</span>
-                        <h3>Fresh Bread</h3>
-                        <p class="muted">Quantity: 30 packets</p>
-                        <p class="muted">Pickup: Tomorrow, 10 AM</p>
-                        <a class="btn btn-primary btn-block" href="food-details.jsp">View Details</a>
-                    </div>
-                </article>
+                    <p class="muted">No available food donations found.</p>
 
-                <article class="food-card">
-                    <div class="food-image">🍎</div>
-                    <div class="food-card-body">
-                        <span class="food-category">Fruits</span>
-                        <h3>Fresh Fruit Boxes</h3>
-                        <p class="muted">Quantity: 10 boxes</p>
-                        <p class="muted">Pickup: Today, 6 PM</p>
-                        <a class="btn btn-primary btn-block" href="food-details.jsp">View Details</a>
-                    </div>
-                </article>
+                <% } else {
+                    for (Donation donation : availableDonations) {
+                %>
+
+                    <article class="food-card">
+
+                        <div class="food-image">🍱</div>
+
+                        <div class="food-card-body">
+
+                            <span class="food-category">
+                                <%= escapeHtml(donation.getFoodType()) %>
+                            </span>
+
+                            <h3><%= escapeHtml(donation.getFoodName()) %></h3>
+
+                            <p class="muted">
+                                Quantity: <%= donation.getQuantity() %>
+                            </p>
+
+                            <p class="muted">
+                                Pickup: <%= escapeHtml(donation.getPickupAddress()) %>
+                            </p>
+
+                            <p class="muted">
+                                Status: <%= escapeHtml(donation.getStatus()) %>
+                            </p>
+
+                            <a class="btn btn-primary btn-block"
+                               href="food-details.jsp?donationId=<%= donation.getDonationId() %>">
+                                View Details
+                            </a>
+
+                        </div>
+                    </article>
+
+                <%  }
+                   } %>
 
             </div>
         </section>
 
         <section class="content-card">
+
             <div class="section-heading">
                 <div>
                     <h2>Recent Requests</h2>
                     <p class="muted">Track the status of your food requests.</p>
                 </div>
+
                 <a class="text-link" href="my-requests.jsp">View All →</a>
             </div>
 
@@ -146,6 +191,7 @@
                             <th>Action</th>
                         </tr>
                     </thead>
+
                     <tbody>
                         <tr>
                             <td>FL-R001</td>
@@ -176,6 +222,7 @@
                     </tbody>
                 </table>
             </div>
+
         </section>
 
         <footer class="page-footer">

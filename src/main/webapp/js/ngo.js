@@ -1,12 +1,16 @@
+
 document.addEventListener("DOMContentLoaded", function () {
 
     /*
      * AVAILABLE FOOD SEARCH AND CATEGORY FILTER
      */
     const foodSearch = document.getElementById("foodSearch");
-    const foodCategoryFilter = document.getElementById("foodCategoryFilter");
-    const availableFoodGrid = document.getElementById("availableFoodGrid");
-    const noFoodResults = document.getElementById("noFoodResults");
+    const foodCategoryFilter =
+        document.getElementById("foodCategoryFilter");
+    const availableFoodGrid =
+        document.getElementById("availableFoodGrid");
+    const noFoodResults =
+        document.getElementById("noFoodResults");
 
     function filterFood() {
         if (!availableFoodGrid) return;
@@ -16,24 +20,34 @@ document.addEventListener("DOMContentLoaded", function () {
             : "";
 
         const selectedCategory = foodCategoryFilter
-            ? foodCategoryFilter.value
+            ? foodCategoryFilter.value.toLowerCase().trim()
             : "all";
 
-        const cards = availableFoodGrid.querySelectorAll(".food-card");
+        const cards =
+            availableFoodGrid.querySelectorAll(".food-card");
+
         let visibleCount = 0;
 
         cards.forEach(function (card) {
-            const cardText = card.textContent.toLowerCase();
-            const cardCategory = card.dataset.category || "";
+            const cardText = (card.textContent || "")
+                .toLowerCase();
 
-            const matchesSearch = cardText.includes(searchTerm);
+            const cardCategory = (
+                card.dataset.category || ""
+            ).toLowerCase().trim();
+
+            const matchesSearch =
+                cardText.includes(searchTerm);
+
             const matchesCategory =
                 selectedCategory === "all" ||
                 cardCategory === selectedCategory;
 
-            const visible = matchesSearch && matchesCategory;
+            const visible =
+                matchesSearch && matchesCategory;
 
-            card.hidden = !visible;
+            // Explicit display style avoids CSS overriding hidden.
+            card.style.display = visible ? "" : "none";
 
             if (visible) {
                 visibleCount++;
@@ -41,7 +55,8 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         if (noFoodResults) {
-            noFoodResults.hidden = visibleCount !== 0;
+            noFoodResults.style.display =
+                visibleCount === 0 ? "" : "none";
         }
     }
 
@@ -53,49 +68,133 @@ document.addEventListener("DOMContentLoaded", function () {
         foodCategoryFilter.addEventListener("change", filterFood);
     }
 
+    filterFood();
+
+
     /*
      * MY REQUESTS SEARCH AND STATUS FILTER
      */
-    const requestSearch = document.getElementById("requestSearch");
-    const requestStatusFilter = document.getElementById("requestStatusFilter");
-    const requestsTable = document.getElementById("requestsTable");
-    const noRequests = document.getElementById("noRequests");
+    const requestSearch =
+        document.getElementById("requestSearch");
+
+    const requestStatusFilter =
+        document.getElementById("requestStatusFilter");
+
+    const requestsTable =
+        document.getElementById("requestsTable");
+
+    const noRequests =
+        document.getElementById("noRequests");
+
+    function normalizeStatus(status) {
+        const value = (status || "")
+            .toLowerCase()
+            .trim();
+
+        // Treat APPROVED and ACCEPTED as the same status.
+        if (value === "approved") {
+            return "accepted";
+        }
+
+        return value;
+    }
 
     function filterRequests() {
-        if (!requestsTable) return;
+        if (!requestsTable) {
+            console.error(
+                "FoodLoop: requestsTable was not found."
+            );
+            return;
+        }
 
         const searchTerm = requestSearch
             ? requestSearch.value.toLowerCase().trim()
             : "";
 
-        const selectedStatus = requestStatusFilter
-            ? requestStatusFilter.value
-            : "all";
+        const selectedStatus = normalizeStatus(
+            requestStatusFilter
+                ? requestStatusFilter.value
+                : "all"
+        );
 
         const rows = requestsTable.querySelectorAll("tbody tr");
+
         let visibleCount = 0;
 
         rows.forEach(function (row) {
-            const rowText = row.textContent.toLowerCase();
-            const rowStatus = row.dataset.status || "";
 
-            const matchesSearch = rowText.includes(searchTerm);
+            /*
+             * Search the complete row, including:
+             * Request ID, food name, quantity, date and status.
+             */
+            const rowText = (row.textContent || "")
+                .toLowerCase()
+                .replace(/\s+/g, " ")
+                .trim();
+
+            /*
+             * Read status from data-status first.
+             * Fall back to the visible status label.
+             */
+            let rowStatus = row.getAttribute("data-status") || "";
+
+            if (!rowStatus) {
+                const statusElement =
+                    row.querySelector(".status");
+
+                if (statusElement) {
+                    rowStatus = statusElement.textContent;
+                }
+            }
+
+            rowStatus = normalizeStatus(rowStatus);
+
+            const matchesSearch =
+                rowText.includes(searchTerm);
+
             const matchesStatus =
                 selectedStatus === "all" ||
                 rowStatus === selectedStatus;
 
-            const visible = matchesSearch && matchesStatus;
+            const visible =
+                matchesSearch && matchesStatus;
 
-            row.hidden = !visible;
+            /*
+             * Explicitly set display instead of relying on hidden.
+             * This helps when CSS rules override the hidden attribute.
+             */
+            row.style.display = visible ? "" : "none";
 
             if (visible) {
                 visibleCount++;
             }
         });
 
+        /*
+         * Display the appropriate message.
+         */
         if (noRequests) {
-            noRequests.hidden = visibleCount !== 0;
+            if (rows.length === 0) {
+                noRequests.textContent =
+                    "You have not submitted any food requests yet.";
+
+                noRequests.style.display = "";
+            } else if (visibleCount === 0) {
+                noRequests.textContent =
+                    "No matching requests found.";
+
+                noRequests.style.display = "";
+            } else {
+                noRequests.style.display = "none";
+            }
         }
+
+        console.log("FoodLoop request filter:", {
+            search: searchTerm,
+            status: selectedStatus,
+            totalRows: rows.length,
+            visibleRows: visibleCount
+        });
     }
 
     if (requestSearch) {
@@ -106,66 +205,111 @@ document.addEventListener("DOMContentLoaded", function () {
         requestStatusFilter.addEventListener("change", filterRequests);
     }
 
+    // Run once on page load.
+    filterRequests();
+
+
     /*
      * FOOD REQUEST FORM
-     * Frontend demo only; it does not save anything to Oracle.
+     * Validate quantity and submit to the Java Servlet.
      */
-    const foodRequestForm = document.getElementById("foodRequestForm");
+    const foodRequestForm =
+        document.getElementById("foodRequestForm");
 
     if (foodRequestForm) {
-        const quantityInput = document.getElementById("requestedQuantity");
-        const quantityError = document.getElementById("requestedQuantityError");
-        const requestFormMessage = document.getElementById("requestFormMessage");
+        const quantityInput =
+            document.getElementById("requestedQuantity");
+
+        const quantityError =
+            document.getElementById("requestedQuantityError");
+
+        const requestFormMessage =
+            document.getElementById("requestFormMessage");
 
         function validateQuantity() {
-            const quantity = Number(quantityInput.value);
+            if (!quantityInput) return false;
+
+            const quantityText = quantityInput.value.trim();
+            const quantity = Number(quantityText);
+            const maximum = Number(quantityInput.max);
 
             if (
-                quantityInput.value.trim() === "" ||
+                quantityText === "" ||
                 !Number.isInteger(quantity) ||
                 quantity < 1 ||
-                quantity > 20
+                !Number.isFinite(maximum) ||
+                maximum < 1 ||
+                quantity > maximum
             ) {
-                quantityError.textContent =
-                    "Enter a whole number between 1 and 20 servings.";
+                if (quantityError) {
+                    const maximumText =
+                        Number.isFinite(maximum) && maximum >= 1
+                            ? maximum
+                            : "the available quantity";
+
+                    quantityError.textContent =
+                        "Enter a whole number between 1 and "
+                        + maximumText + ".";
+                }
+
                 quantityInput.classList.add("invalid");
                 quantityInput.setAttribute("aria-invalid", "true");
+
                 return false;
             }
 
-            quantityError.textContent = "";
+            if (quantityError) {
+                quantityError.textContent = "";
+            }
+
             quantityInput.classList.remove("invalid");
             quantityInput.setAttribute("aria-invalid", "false");
+
             return true;
         }
 
-        quantityInput.addEventListener("input", function () {
-            if (quantityInput.classList.contains("invalid")) {
-                validateQuantity();
-            }
-        });
+        if (quantityInput) {
+            quantityInput.addEventListener("input", function () {
+                if (quantityInput.classList.contains("invalid")) {
+                    validateQuantity();
+                }
+            });
+        }
 
         foodRequestForm.addEventListener("submit", function (event) {
-            event.preventDefault();
-
             if (!validateQuantity()) {
-                requestFormMessage.textContent =
-                    "Please correct the quantity before submitting.";
-                requestFormMessage.className = "form-message error";
-                quantityInput.focus();
+                event.preventDefault();
+
+                if (requestFormMessage) {
+                    requestFormMessage.textContent =
+                        "Please correct the requested quantity.";
+
+                    requestFormMessage.className =
+                        "form-message error";
+                }
+
+                if (quantityInput) {
+                    quantityInput.focus();
+                }
+
                 return;
             }
 
-            const confirmed = window.confirm(
-                "Submit this food request in the frontend demo?"
-            );
+            if (!window.confirm(
+                "Submit this food request to the donor?"
+            )) {
+                event.preventDefault();
+                return;
+            }
 
-            if (!confirmed) return;
+            if (requestFormMessage) {
+                requestFormMessage.textContent =
+                    "Submitting your food request...";
 
-            requestFormMessage.textContent =
-                "Frontend validation successful! Backend integration is pending; the request has not been saved.";
-            requestFormMessage.className = "form-message success";
+                requestFormMessage.className = "form-message";
+            }
+
+            // Keep normal form submission enabled.
         });
     }
-
 });
